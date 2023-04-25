@@ -73,8 +73,8 @@ pip install -e .
 
 3. Set ML-Cloud specific environment variables
 ```Shell
-export TRANSFORMERS_CACHE=/mnt/lustre/bethge/mburg/.cache/huggingface
-export HF_HOME=/mnt/lustre/bethge/mburg/.cache/huggingface
+export TRANSFORMERS_CACHE=$WORK/.cache/huggingface
+export HF_HOME=$WORK/.cache/huggingface
 export DATA_DIR=/mnt/lustre/bethge/bkr405/compositional_categories_data
 ```
 
