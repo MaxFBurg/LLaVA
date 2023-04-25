@@ -68,7 +68,7 @@ cd LLaVA
 conda create -n llava python=3.10 -y
 conda activate llava
 pip install --upgrade pip  # enable PEP 660 support
-pip install -e .
+TMPDIR=$WORK/.tmp pip install --cache-dir=$WORK/.tmp -e .
 ```
 
 3. Set ML-Cloud specific environment variables
