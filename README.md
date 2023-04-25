@@ -71,6 +71,13 @@ pip install --upgrade pip  # enable PEP 660 support
 pip install -e .
 ```
 
+3. Set ML-Cloud specific environment variables
+```Shell
+export TRANSFORMERS_CACHE=/mnt/lustre/bethge/mburg/.cache/huggingface
+export HF_HOME=/mnt/lustre/bethge/mburg/.cache/huggingface
+export DATA_DIR=/mnt/lustre/bethge/bkr405/compositional_categories_data
+```
+
 **NOTE**:
 In this research preview, we used a modified version of huggingface/transformers library to support multimodal models and the LLaMA tokenizer.  Make sure that you create a new Conda environment and you are using the correct transformers library from https://github.com/haotian-liu/transformers_llava.
 
