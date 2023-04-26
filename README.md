@@ -55,6 +55,16 @@ If you already have CC-3M dataset on your disk, the image names follow this form
 | --- |  --- |  --- | ---: |
 | CC-3M Pretrain 595K | [chat.json](https://huggingface.co/datasets/liuhaotian/LLaVA-CC3M-Pretrain-595K/raw/main/chat.json) | [metadata.json](https://huggingface.co/datasets/liuhaotian/LLaVA-CC3M-Pretrain-595K/raw/main/metadata.json) | 211 MB
 
+**Important notice**: Upon the request from the community, as ~15% images of the original CC-3M dataset are no longer accessible, we upload [`images.zip`](https://huggingface.co/datasets/liuhaotian/LLaVA-CC3M-Pretrain-595K/blob/main/images.zip) for better reproducing our work in research community. It must not be used for any other purposes. The use of these images must comply with the CC-3M license. This may be taken down at any time when requested by the original CC-3M dataset owner or owners of the referenced images.
+
+### GPT-4 Prompts
+
+We provide our prompts and few-shot samples for GPT-4 queries, to better facilitate research in this domain.  Please check out the [`prompts`](playground/data/prompts) folder for three kinds of questions: conversation, detail description, and complex reasoning.
+
+They are organized in a format of `system_message.txt` for system message, pairs of `abc_caps.txt` for few-shot sample user input, and `abc_conv.txt` for few-shot sample reference output.
+
+Note that you may find them in different format. For example, `conversation` is in `jsonl`, and detail description is answer-only.  The selected format in our preliminary experiments work slightly better than a limited set of alternatives that we tried: `jsonl`, more natural format, answer-only.  If interested, you may try other variants or conduct more careful study in this.  Contributions are welcomed!
+
 ## Install
 
 1. Clone this repository and navigate to LLaVA folder
@@ -84,6 +94,7 @@ In this research preview, we used a modified version of huggingface/transformers
 You may try running the following command to make sure the version is correct.
 
 ```Shell
+pip uninstall transformers
 pip install git+https://github.com/haotian-liu/transformers_llava.git@988b6abb3b7da9a5cbb5051e994706f7f88c2565
 ```
 
@@ -160,6 +171,30 @@ python -m llava.serve.gradio_web_server --controller http://localhost:10000
 ```
 #### You can open your browser and chat with a model now.
 
+### CLI Inference
+
+A starting script for inference with LLaVA without the need of Gradio interface. The current implementation only supports for a single-turn Q-A session, and the interactive CLI is WIP.  This also serves as an example for users to build customized inference scripts.
+
+```Shell
+python -m llava.eval.run_llava \
+    --model-name /path/to/LLaVA-13B-v0 \
+    --image-file "https://llava-vl.github.io/static/images/view.jpg" \
+    --query "What are the things I should be cautious about when I visit here?"
+```
+
+Example output (varies in different runs):
+
+> When visiting this picturesque location with a serene lake and a wooden pier extending over the water, one should be cautious about various safety aspects. Some important considerations include:
+> 
+> 1. Ensuring that the pier is structurally sound andstable, as old or weakened pier structures might not support the weight of visitors.
+> 2. Being aware of the water depth around the pier and lake, as sudden drop-offs or strong currents may pose a risk to swimmers, boaters, or those who venture too close to the edge.
+> 3. Staying vigilant about the presence of wildlife in the area, such as slippery, stealthy fish or other animals that might cause harm or inconvenience.
+> 4. Maintaining a safe distance from the water's edge, particularly for children, elderly individuals, or those who are not strong swimmers.
+> 5. Following any posted signs or guidelines related to safety and the use of the pier and surrounding areas.
+> 
+> By considering these safety precautions, visitors can enjoy the natural beauty of the location while minimizing risks and ensuring a safe and pleasant experience.
+
+
 ## Evaluation
 
 ### GPT-assisted Evaluation
@@ -213,53 +248,52 @@ python scripts/convert_sqa_to_llava \
 
 #### Evaluation
 
-1. Download our pretrained LLaVA-13B (delta) weights for ScienceQA dataset [here](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0-science_qa).  Convert the delta weights to actual weights following instructions [here](https://github.com/haotian-liu/LLaVA#llava-13b), and make sure to modify the command accordingly for ScienceQA.
+1. Download our pretrained LLaVA-13B (delta) weights for ScienceQA dataset [here](https://huggingface.co/liuhaotian/LLaVA-13b-delta-v0-science_qa).  Convert the delta weights to actual weights.
 
-2. Generate LLaVA responses on ScienceQA dataset
+```Shell
+python -m llava.model.apply_delta \
+    --base /path/to/llama-13b \
+    --target /path/to/LLaVA-13b-v0-science_qa \
+    --delta liuhaotian/LLaVA-13b-delta-v0-science_qa
+```
+
+2. [Option 1] Multiple-GPU inference
+You may evaluate this with multiple GPUs, and concatenate the generated jsonl files.  Please refer to our script for [batch evaluation](scripts/sqa_eval_batch.sh) and [results gathering](scripts/sqa_eval_gather.sh).
+
+3. [Option 2] Single-GPU inference
+
+(a) Generate LLaVA responses on ScienceQA dataset
 
 ```Shell
 python -m llava.eval.model_vqa_science \
     --model-name /path/to/LLaVA-13b-v0-science_qa \
     --question-file /path/to/ScienceQA/data/scienceqa/llava_test.json \
     --image-folder /path/to/ScienceQA/data/scienceqa/images/test \
-    --answers-file vqa/results/ScienceQA/test_llava-13b.jsonl
+    --answers-file vqa/results/ScienceQA/test_llava-13b.jsonl \
+    --answer-prompter
+    --conv-mode simple
 ```
 
-Alternatively, you may evaluate this with multiple GPUs, and concatenate the generated jsonl files.
-
-```Shell
-CHUNKS=8
-CHUNK_IDX=0
-CUDA_VISIBLE_DEVICES=CHUNK_IDX python model_vqa_science.py \
-    --model-name /path/to/LLaVA-13b-v0-science_qa \
-    --question-file /path/to/ScienceQA/data/scienceqa/llava_test.json \
-    --image-folder /path/to/ScienceQA/data/scienceqa/images/test \
-    --answers-file vqa/results/ScienceQA/test_llava-13b-chunk${CHUNKS}_${CHUNK_IDX}.jsonl \
-    --num-chunks $CHUNKS \
-    --chunk-idx $CHUNK_IDX
-
-# after running this for all chunks, concatenate the results
-cat {...} > vqa/results/ScienceQA/test_llava-13b.jsonl
-```
-
-3. Evaluate the generated responses
+(b) Evaluate the generated responses
 
 ```Shell
 python eval_science_qa.py \
     --base-dir /path/to/ScienceQA/data/scienceqa \
     --result-file vqa/results/ScienceQA/test_llava-13b.jsonl \
     --output-file vqa/results/ScienceQA/test_llava-13b_output.json \
-    --result-file vqa/results/ScienceQA/test_llava-13b_result.json \
+    --output-result vqa/results/ScienceQA/test_llava-13b_result.json \
 ```
+
+For reference, we attach our prediction file `test_llava-13b_result.json` [here](llava/eval/table/results/test_sqa_llava_13b_v0.json) for comparison when reproducing our results, as well as for further analysis in detail.
 
 ## Fine-tuning
 ### Data
 
-The current version of LLaVA is fine-tuned from a Vicuna-13B model.  We use approximately 600K filtered CC3M in feature alignment pretraining and 150K GPT-generated multimodal instruction-following data in finetuning. For detailed description of the data generation pipeline, please refer see our [paper](#).
+The current version of LLaVA is fine-tuned from a Vicuna-13B model.  We use approximately 600K filtered CC3M in feature alignment pretraining and 150K GPT-generated multimodal instruction-following data in finetuning. For detailed description of the data generation pipeline, please refer see our [paper](https://arxiv.org/abs/2304.08485).
 
 We are working on a more capable model that is pretrained with the data at a larger scale.  Stay tuned!
 
-We release all three types of multimodal instruction-following data.  The use of these data is subject to OpenAI [TOS](#).
+We release all three types of multimodal instruction-following data.  The use of these data is subject to OpenAI [TOS](https://openai.com/policies/terms-of-use).
 
 ### Code and Hyperparameters
 We fine-tune the model using the code from [FastChat](https://github.com/lm-sys/FastChat). We use a similar set of hyperparameters as Vicuna in finetuning.  Both hyperparameters used in pretraining and finetuning are provided below.
@@ -312,6 +346,69 @@ torchrun --nnodes=1 --nproc_per_node=8 --master_port=25001 \
     --lazy_preprocess True \
     --report_to wandb
 ```
+
+#### Experimental: use FSDP to save memory in pretraining
+
+<details>
+<summary>Learn more</summary>
+
+***
+
+Currently, PyTorch and Huggingface does not yet have stable/native support for FSDP on parameter efficient tuning (part of the parameters are frozen).  However, the feature is being developed in PyTorch nightly and shall be shipped in the next release.  We provide an experimental script to enable FSDP in pretraining.  To use it, please **create a new enviroment**, and install PyTorch nightly, and our `transformers` modified specifically for FSDP in pretraining.
+
+1. Prepare environment
+```Shell
+conda create -n llava_beta python=3.10 -y
+conda activate llava_beta
+pip install --upgrade pip
+pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu117
+pip install -e .
+pip install einops ninja
+pip install flash-attn
+
+# Install our modified transformers
+pip uninstall transformers
+pip install git+https://github.com/haotian-liu/transformers_llava.git@d1764446896c90b1108058cdd9a9cfdb90f4c22c
+```
+
+2. Run pretraining with FSDP (experimental)
+```Shell
+torchrun --nnodes=1 --nproc_per_node=8 --master_port=25001 \
+    llava/train/train_mem.py \
+    --model_name_or_path ./checkpoints/llama-vicuna-13b \
+    --data_path /path/to/cc3m_595k.json \
+    --image_folder /path/to/cc3m_595k \
+    --vision_tower openai/clip-vit-large-patch14 \
+    --tune_mm_mlp_adapter True \
+    --mm_vision_select_layer -2 \
+    --mm_use_im_start_end \
+    --bf16 True \
+    --output_dir ./checkpoints/llava-13b-pretrain_fsdp \
+    --num_train_epochs 1 \
+    --per_device_train_batch_size 16 \
+    --per_device_eval_batch_size 4 \
+    --gradient_accumulation_steps 1 \
+    --evaluation_strategy "no" \
+    --save_strategy "steps" \
+    --save_steps 2400 \
+    --save_total_limit 1 \
+    --learning_rate 2e-3 \
+    --weight_decay 0. \
+    --warmup_ratio 0.03 \
+    --lr_scheduler_type "cosine" \
+    --logging_steps 1 \
+    --tf32 True \
+    --fsdp "full_shard auto_wrap" \
+    --fsdp_transformer_layer_cls_to_wrap 'LlamaDecoderLayer' \
+    --model_max_length 2048 \
+    --gradient_checkpointing True \
+    --lazy_preprocess True \
+    --report_to wandb
+```
+
+FSDP in pretraining (experimental) ENDS.
+***
+</details>
 
 2. Extract projector features
 ```Shell
