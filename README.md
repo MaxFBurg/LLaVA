@@ -109,6 +109,8 @@ python3 -m llava.model.apply_delta \
     --base /path/to/llama-13b \
     --target /output/path/to/LLaVA-13B-v0 \
     --delta liuhaotian/LLaVA-13b-delta-v0
+
+python3 -m llava.model.apply_delta --base $WORK/LLaMA_model_weights/llama-13b-hf/ --target $WORK/LLaVA/model_weights --delta liuhaotian/LLaVA-13b-delta-v0
 ```
 
 ### LLaVA-7B
